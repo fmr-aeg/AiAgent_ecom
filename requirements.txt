@@ -2,3 +2,6 @@ torch
 transformers
 pandas
 numpy
+accelerate>=0.26.0
+bitsandbytes==0.45.3
+smolagents

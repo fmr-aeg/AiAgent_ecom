@@ -50,5 +50,3 @@ def get_amazon_product_description(product_url: str) -> str:
 
     except requests.exceptions.RequestException as e:
         return f"Error : {str(e)}"
-
-

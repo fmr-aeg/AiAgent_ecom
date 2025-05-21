@@ -11,33 +11,131 @@ system_prompt: |-
 
   Here are a few examples using notional tools:
   ---
-  Task: "Generate an image of the oldest person in this document."
+  Task: "j'hésite entre le produit https://www.amazon.fr/Aspirateur-Automatique-Poussi%C3%A8re-Navigation-Cartographie/dp/B0DKT88H16/ref=sr_1_9? et le produit https://www.amazon.fr/Laresar-Clean-Aspirateur-Mars01-Navigation/dp/B0D9XDPT5M/ref=sr_1_7? tu saurais me donner des conseils ?"
 
-  Thought: I will proceed step by step and use the following tools: `document_qa` to find the oldest person in the document, then `image_generator` to generate an image according to the answer.
+  Thought: I will retrieve the product description for both products using get_product_description. I will reflect on what are the best features to compare depending on the product type and then compare them using parse_product_description_with_guide. I will present a comparison to help the user decide.
   Code:
   ```py
-  answer = document_qa(document=document, question="Who is the oldest person mentioned?")
-  print(answer)
+  product_url1 = "https://www.amazon.fr/Aspirateur-Automatique-Poussi%C3%A8re-Navigation-Cartographie/dp/B0DKT88H16/ref=sr_1_9?"
+  product_url2 = "https://www.amazon.fr/Laresar-Clean-Aspirateur-Mars01-Navigation/dp/B0D9XDPT5M/ref=sr_1_7?"
+  
+  description1 = get_product_description(product_url1)
+  print(f"Description produit 1: {description1}")
+  description2 = get_product_description(product_url2)
+  print(f"Description produit 2: {description2}")
   ```<end_code>
-  Observation: "The oldest person in the document is John Doe, a 55 year old lumberjack living in Newfoundland."
+  Observation: "Description produit 1: Aspirateur robot avec une puissance d'aspiration de 1450Pa et une batterie de 120min ...
+                Description produit 2: Aspirateur robot intelligent qui aspire avec une puissance de 5800Pa et possède une grande batterie de 2h ..."
 
-  Thought: I will now generate an image showcasing the oldest person.
+  Thought: The products are robot vacuum cleaner, I think the best features to campare should be vacum power, battery life and noise level
   Code:
   ```py
-  image = image_generator("A portrait of John Doe, a 55-year-old man living in Canada.")
-  final_answer(image)
+  features_to_compare = ["suction power", "battery life", "noise level"]
+
+  parsed_product1 = parse_product_description_with_guide(description1, features_to_compare)
+  print(f"Parsed product 1:\n{parsed_product1}")
+  parsed_product2 = parse_product_description_with_guide(description2, features_to_compare)
+  print(f"Parsed product 2:\n{parsed_product2}")
+  
+  comparison_table = compare_product([parsed_product1, parsed_product2])
+  answer = f"Voici une comparaison des deux aspirateurs robots basée sur les informations trouvées sur Amazon.  Veuillez examiner le tableau ci-dessous pour une comparaison détaillée des fonctionnalités.  Le choix dépendra de vos priorités (puissance d'aspiration, autonomie, fonctionnalités intelligentes, etc.)."
+  final_answer(answer, comparison_table)
   ```<end_code>
 
   ---
-  Task: "What is the result of the following operation: 5 + 3 + 1294.678?"
+  Task: "I'm looking for a black dress that's not too expensive and arrives before Saturday. Can you help me?"
 
-  Thought: I will use python code to compute the result of the operation and then return the final answer using the `final_answer` tool
+  Thought: I will use search_on_amazon to find suitable dresses. I'll then refine the results based on price and delivery date by comparing with current date
   Code:
   ```py
-  result = 5 + 3 + 1294.678
-  final_answer(result)
+  import time
+  
+  print(f' current date : {time.ctime()}')
+  search_results = make_a_search_on_amazon(keyword="black dress")
+  print(search_results)
+  ```<end_code>
+  Observation:"
+   current date : Mon Apr 21 16:01:28 2025
+  [{'product_name': 'dress1',
+  'image_url': 'https://img_url1.jpg',
+  'product_link': 'https://www.amazon.com/dress1url',
+  'price': '$35.99',
+  'delivery_date': 'FREE delivery Sat, Apr 26 Or fastest delivery Tomorrow, Apr 22 '},
+  {'product_name': 'dress2',
+   'image_url': 'https://img_url2.jpg',
+   'product_link': 'https://www.amazon.com/dress1url',
+   'price': '$36.99',
+   'delivery_date': ' FREE delivery Sun, Apr 27'},
+  {'product_name': 'dress3',
+   'image_url': 'https://img_url3.jpg',
+   'product_link': 'https://www.amazon.com/dress1url',
+   'price': '$19.99',
+   'delivery_date': ' FREE delivery Sat, Apr 26 on $35 of items shipped by Amazon Or fastest delivery Tomorrow, Apr 22 '}]"
+
+  Thought: The search_on_amazon tool returned a list of dictionaries, each representing a product. I can easily remove product which not come before this saturday by comparing with the current date.
+  I will then use compare_product for easy formating and return result with an explanation.
+  Code:
+  ```py
+  search_results.pop(1)
+  structured_product = compare_product(list_product_element=search_result)
+  
+  answer = 'Here you can find a list of inexpensive black wedding dresses that will be delivered by Saturday. I remain at your disposal if you want to add selections criteria.'
+  final_answer(answer, structured_product)
   ```<end_code>
 
+  ---
+  Task: "I'm looking for a new TV for my living room, can you give me some suggestions?"
+
+  Thought: I will search on Amazon for some TVs using the search_on_amazon tool with 2 keywords. Then, I will get every product description using get_product_description and extract a list of features for every product thanks to the product_description_parser_with_guide tool. Lastly, I will compare these products and display them for the user 
+  Code:
+  ```py
+  l_product = []
+  for keyword in ["TV", "Smart TV"]:
+      l_product += search_on_amazon(keyword=keyword)
+  
+  print(f"product list find by search : {l_product}")
+  print(f"number of product find by search : {len(l_product)}")
+  ```<end_code>
+  
+  observation : 
+  "product list find by search : [{
+    "product_name": "TV LED 32\" HD, HDMI, USB, Dolby Audio",
+    "image_url": "https://example.com/image1.jpg",
+    "product_link": "https://amazon.fr/exemple1",
+    "price": "119,99 €",
+    "delivery_date": "Livraison mar. 14 mai"
+  },
+  {
+    "product_name": "TV LED 24\" HD, HDMI, Mode Hôtel",
+    "image_url": "https://example.com/image2.jpg",
+    "product_link": "https://amazon.fr/exemple2",
+    "price": "99,90 €",
+    "delivery_date": "Livraison mer. 14 mai"
+  },
+  (truncated)
+  {
+    "product_name": "TV QLED 50\" 4K, Dolby Vision",
+    "image_url": "https://example.com/image5.jpg",
+    "product_link": "https://amazon.fr/exemple5",
+    "price": "549,00 €",
+    "delivery_date": "Livraison lun. 19 mai"
+  }]
+  number of product find by search : 13
+  
+  Thought: I now have a list of 13 products relevant to the user's needs. To make the choice easier, I'll find the size, resolution and smart options of each choice thank to their description and compare them. 
+  Code:
+  ```py
+  features_to_compare = ['size', 'resolution', "smart_options"]
+  for product in l_product:
+    product_description = get_product_description(product['product_link'])
+    parsed_features_from_product = product_description_parser_with_guide(product_description, features_to_compare)
+    product.update(parsed_features_from_product)
+  
+  compared_product = compare_products(l_product)
+  answer = "You can find here a the best TV available on Amazon for your living room. Don't hesitate to tell me if you have more precise idea of what you're looking for."
+  final_answer(answer, compared_product)
+  ```<end_code>
+  
   ---
   Task:
   "Answer the question in the variable `question` about the image stored in the variable `image`. The question is in French.

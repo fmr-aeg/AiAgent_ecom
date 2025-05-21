@@ -18,6 +18,7 @@ import os
 import re
 import shutil
 from typing import Optional
+import pandas as pd
 
 from smolagents.agent_types import AgentAudio, AgentImage, AgentText, handle_agent_output_types
 from smolagents.agents import ActionStep, MultiStepAgent
@@ -154,22 +155,16 @@ def stream_to_gradio(
             yield message
 
     final_answer = step_log  # Last log is the run's final_answer
+
+    if isinstance(final_answer, pd.DataFrame):
+        yield gr.HTML("whaaaaaoooooooooooooooooooouuuuuuuuuu")
+
     final_answer = handle_agent_output_types(final_answer)
 
     if isinstance(final_answer, AgentText):
         yield gr.ChatMessage(
             role="assistant",
             content=f"**Final answer:**\n{final_answer.to_string()}\n",
-        )
-    elif isinstance(final_answer, AgentImage):
-        yield gr.ChatMessage(
-            role="assistant",
-            content={"path": final_answer.to_string(), "mime_type": "image/png"},
-        )
-    elif isinstance(final_answer, AgentAudio):
-        yield gr.ChatMessage(
-            role="assistant",
-            content={"path": final_answer.to_string(), "mime_type": "audio/wav"},
         )
     else:
         yield gr.ChatMessage(role="assistant", content=f"**Final answer:** {str(final_answer)}")
@@ -199,98 +194,51 @@ class GradioUI:
             yield messages
         yield messages
 
-    def upload_file(
-        self,
-        file,
-        file_uploads_log,
-        allowed_file_types=[
-            "application/pdf",
-            "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-            "text/plain",
-        ],
-    ):
-        """
-        Handle file uploads, default allowed types are .pdf, .docx, and .txt
-        """
-        import gradio as gr
+    def log_user_message(self, text_input):
+        return text_input, ""
 
-        if file is None:
-            return gr.Textbox("No file uploaded", visible=True), file_uploads_log
+    def reset_agent(self):
+        self.agent.memory.reset()
+        self.agent.monitor.reset()
 
-        try:
-            mime_type, _ = mimetypes.guess_type(file.name)
-        except Exception as e:
-            return gr.Textbox(f"Error: {e}", visible=True), file_uploads_log
+    def print_last_message(self, message_saved):
+        return message_saved[-1]
 
-        if mime_type not in allowed_file_types:
-            return gr.Textbox("File type disallowed", visible=True), file_uploads_log
-
-        # Sanitize file name
-        original_name = os.path.basename(file.name)
-        sanitized_name = re.sub(
-            r"[^\w\-.]", "_", original_name
-        )  # Replace any non-alphanumeric, non-dash, or non-dot characters with underscores
-
-        type_to_ext = {}
-        for ext, t in mimetypes.types_map.items():
-            if t not in type_to_ext:
-                type_to_ext[t] = ext
-
-        # Ensure the extension correlates to the mime type
-        sanitized_name = sanitized_name.split(".")[:-1]
-        sanitized_name.append("" + type_to_ext[mime_type])
-        sanitized_name = "".join(sanitized_name)
-
-        # Save the uploaded file to the specified folder
-        file_path = os.path.join(self.file_upload_folder, os.path.basename(sanitized_name))
-        shutil.copy(file.name, file_path)
-
-        return gr.Textbox(f"File uploaded: {file_path}", visible=True), file_uploads_log + [file_path]
-
-    def log_user_message(self, text_input, file_uploads_log):
-        return (
-            text_input
-            + (
-                f"\nYou have been provided with these files, which might be helpful or not: {file_uploads_log}"
-                if len(file_uploads_log) > 0
-                else ""
-            ),
-            "",
-        )
 
     def launch(self, **kwargs):
         import gradio as gr
 
-        with gr.Blocks(fill_height=True) as demo:
+        with (gr.Blocks(theme='CultriX/gradio-theme', fill_height=True) as demo):
             stored_messages = gr.State([])
-            file_uploads_log = gr.State([])
-            chatbot = gr.Chatbot(
-                label="Agent",
-                type="messages",
-                avatar_images=(
-                    None,
-                    "https://huggingface.co/datasets/agents-course/course-images/resolve/main/en/communication/Alfred.png",
-                ),
-                resizeable=True,
-                scale=1,
-            )
-            # If an upload folder is provided, enable the upload feature
-            if self.file_upload_folder is not None:
-                upload_file = gr.File(label="Upload a file")
-                upload_status = gr.Textbox(label="Upload Status", interactive=False, visible=False)
-                upload_file.change(
-                    self.upload_file,
-                    [upload_file, file_uploads_log],
-                    [upload_status, file_uploads_log],
-                )
-            text_input = gr.Textbox(lines=1, label="Chat Message")
-            text_input.submit(
-                self.log_user_message,
-                [text_input, file_uploads_log],
-                [stored_messages, text_input],
-            ).then(self.interact_with_agent, [stored_messages, chatbot], [chatbot])
 
-        demo.launch(debug=True, share=True, **kwargs)
+            with gr.Row(scale=1):
+                with gr.Column(scale=1):
+                    clear = gr.Button("Effacer la conversation")
+
+                with gr.Column(scale=10):
+                    chatbot = gr.Chatbot(
+                        label="Agent",
+                        type="messages",
+                        avatar_images=(
+                            None,
+                            "https://huggingface.co/datasets/agents-course/course-images/resolve/main/en/communication/Alfred.png",
+                        ),
+                        resizeable=True,
+                        scale=1,
+                    )
+
+                    product_reco = gr.HTML()
+
+                    text_input = gr.Textbox(lines=1, label="Chat Message")
+                    text_input.submit(
+                        self.log_user_message,
+                        inputs=text_input,
+                        outputs=[stored_messages, text_input],
+                        ).then(self.interact_with_agent, [stored_messages, chatbot], [chatbot])
+
+                clear.click(self.reset_agent, None, None).then(lambda: None, None, chatbot)
+
+        demo.launch(debug=True, share=False, **kwargs)
 
 
 __all__ = ["stream_to_gradio", "GradioUI"]

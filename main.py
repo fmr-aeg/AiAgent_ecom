@@ -1,47 +1,85 @@
 import os
 from transformers import AutoTokenizer, AutoModelForCausalLM, pipeline, BitsAndBytesConfig
-from smolagents import CodeAgent, load_tool,tool,  Model, FinalAnswerTool, LiteLLMModel
+from smolagents import CodeAgent, load_tool,tool,  Model, LiteLLMModel #UserInputTool #,FinalAnswerTool
 from custom_model import CustomTransformersModel
 from typing import Optional
-from utils_tools import get_raw_description_from_product_url, get_price_from_product_url, make_a_search_on_amazon, compare_products, ParserProductDescriptionWithoutGuideTool, ParserProductDescriptionWithGuideTool
-from Gradio_UI import GradioUI
+from utils_tools import (get_price_from_product_url, search_on_amazon,
+                         ParserProductDescriptionWithGuideTool, GetProductDescriptionTool,
+                         CompareProductTool, FilterProduct, FinalAnswerTool)
+from test_gradio import GradioUI
+import yaml
+from custom_python_executor import LocalPythonExecutor
+
 os.environ['HF_HOME'] = '/home/ayoub/llm_models'
 os.environ['GEMINI_API_KEY'] = 'AIzaSyDdMKL9vyRC3xEnjitbQhaRmpHrYJbgAlo'
 
 
-SYSTEM_PROMPT_GUIDED = """Tu es un assistant expert de l'extraction d'information. Tu t'appuie sur la description produit fournis par l'utilisateur pour retrouver la liste des attributs qui t'es demandé.
-Une fois les avoir extrait, tu structure ta réponse sous le format d'un json avec en clef le nom de l'attribut et en valeur sa valeur. Si jamais un des attribut demandé par l'utilisateur ne se retrouve pas dans la description, tu mets la valeur "N/A".
-Par exemple, si l'utilisateur te fournis la fiche d'un canapé et te demande de retrouver les dimensions, la couleur, la matiere et si il est convertible, tu donneras une réponse sous la forme :
-{"dimension": dimension du produit,
- "couleur": couleur du produit,
- "matiere": matière du produit,
- "convertible": si oui ou non il est convertible}
-N'oublie pas que le client a besoin de toi donc donne toi à fond ! """
+SYSTEM_PROMPT_GUIDED = """You are an expert assistant in product information extraction.
 
-model = LiteLLMModel(model_id='gemini/gemini-1.5-flash')
+Based on a *product description* provided by the user, your job is to identify and extract the *requested attributes*, 
+and organize them in a structured JSON format.
+
+Your response must **always include at minimum** the following keys, even if they are not explicitly requested:
+- "product_name"
+- "image_url"
+- "price"
+
+For each requested attribute:
+- If it is found in the description, provide its value.
+- If it is missing, return `"N/A"` as the value.
+
+Your final output must be a valid JSON object, using the exact attribute names as keys.
+
+Example:
+If the description is about a sofa and the requested attributes are ["dimension", "color", "material", "convertible"],
+your output should look like this:
+
+{
+ "product_name": "Oslo 3-seater Sofa",
+ "image_url": "https://...",
+ "price": "€499",
+ "dimension": "200x90x85 cm",
+ "color": "Light grey",
+ "material": "Fabric and wood",
+ "convertible": "Yes"
+}
+
+Be precise, structured, and always do your best to help the customer understand the product clearly."""
+
+model = LiteLLMModel(model_id='gemini/gemini-2.0-flash')
 
 product_description_parser_with_guide = ParserProductDescriptionWithGuideTool(model, SYSTEM_PROMPT_GUIDED)
+compare_products = CompareProductTool(model)
+filter_product = FilterProduct(model)
+get_product_description = GetProductDescriptionTool()
+# input_user = UserInputTool()
 final_answer = FinalAnswerTool()
+
+template = yaml.safe_load(open("prompt.yaml"))
 
 agent = CodeAgent(
     tools=[
-        # get_weather,
-        get_raw_description_from_product_url,
-        get_price_from_product_url,
+        get_product_description,
+        # get_price_from_product_url,
         product_description_parser_with_guide,
-        make_a_search_on_amazon,
+        search_on_amazon,
         compare_products,
+        filter_product,
         final_answer
     ],
     model=model,
-    max_steps=3,
-    verbosity_level=2,
+    prompt_templates=template,
+    max_steps=8,
+    verbosity_level=1,
     grammar=None,
     planning_interval=None,
     name=None,
     description=None,
     additional_authorized_imports=['pandas', 'json']
 )
+
+agent.python_executor = LocalPythonExecutor(agent.additional_authorized_imports,
+                                            max_print_outputs_length=agent.max_print_outputs_length)
 
 if __name__ == '__main__':
     GradioUI(agent).launch()

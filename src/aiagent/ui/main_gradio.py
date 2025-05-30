@@ -1,7 +1,5 @@
-import mimetypes
 import os
 import re
-import shutil
 from typing import Optional
 import pandas as pd
 import json
@@ -9,17 +7,17 @@ import json
 from smolagents.agents import ActionStep, MultiStepAgent
 from smolagents.memory import MemoryStep
 from smolagents.utils import _is_package_available
-from rending_method import cleaning_model_thinking
+from src.aiagent.utils.rending_method import cleaning_model_thinking
 
-from custom_gradio_theme import AmazonTheme
+from src.aiagent.ui.amazon_gradio_theme import AmazonTheme
 
 theme_amazon = AmazonTheme()
 
+
 def pull_messages_from_step(
-    step_log: MemoryStep,
+        step_log: MemoryStep,
 ):
     """Extract ChatMessage objects from agent steps with proper nesting"""
-    import gradio as gr
 
     if isinstance(step_log, ActionStep):
         # Output the step number
@@ -58,18 +56,18 @@ def pull_messages_from_step(
 
         yield step_footnote, 'FOOTNOTE'
 
+
 def stream_to_gradio(
-    agent,
-    task: str,
-    reset_agent_memory: bool = False,
-    additional_args: Optional[dict] = None,
+        agent,
+        task: str,
+        reset_agent_memory: bool = False,
+        additional_args: Optional[dict] = None,
 ):
     """Runs an agent with the given task and streams the messages from the agent as gradio ChatMessages."""
     if not _is_package_available("gradio"):
         raise ModuleNotFoundError(
             "Please install 'gradio' extra to use the GradioUI: `pip install 'smolagents[gradio]'`"
         )
-    import gradio as gr
 
     total_input_tokens = 0
     total_output_tokens = 0
@@ -84,7 +82,7 @@ def stream_to_gradio(
                 step_log.output_token_count = agent.model.last_output_token_count
 
         for message, status_code in pull_messages_from_step(
-            step_log,
+                step_log,
         ):
             yield message, status_code
 
@@ -92,8 +90,8 @@ def stream_to_gradio(
 
     yield final_answer, "FINAL"
 
-def generate_product_cards(l_products):
 
+def generate_product_cards(l_products):
     cards = ""
     for product in l_products:
         details = ""
@@ -187,7 +185,7 @@ class GradioUI:
     def launch(self, **kwargs):
         import gradio as gr
 
-        with (gr.Blocks(theme=theme_amazon, fill_height=True) as demo):
+        with gr.Blocks(theme=theme_amazon, fill_height=True) as demo:
             stored_messages = gr.State([])
             current_product = gr.State([])
 
@@ -212,18 +210,21 @@ class GradioUI:
 
                     thinking_message = gr.Markdown("🤖 Let me think...", visible=False)
                     product_reco = gr.HTML()
-                    text_input = gr.Textbox(lines=1,
-                                            label="Chat Message",
-                                            show_label=False,
-                                            placeholder="I'm looking for a black dress for a wedding that will take place Saturday next week. Can you help me?")
-
+                    with gr.Row():
+                        text_input = gr.Textbox(lines=1,
+                                                label="Chat Message",
+                                                show_label=False,
+                                                placeholder="I'm looking for a black dress for a wedding that will take place Saturday next week. Can you help me?",
+                                                container=False,
+                                                scale=15)
+                        search_button = gr.Button("🔍︎", scale=1, variant="secondary")
 
                     text_input.submit(
                         self.log_user_message,
                         inputs=text_input,
                         outputs=[stored_messages, text_input],
                     ).then(
-                        lambda : gr.update(visible=True),
+                        lambda: gr.update(visible=True),
                         inputs=None,
                         outputs=thinking_message,
                     ).then(
@@ -231,17 +232,35 @@ class GradioUI:
                         inputs=[stored_messages, chatbot, current_product],
                         outputs=[chatbot, product_reco],
                     ).then(
-                        lambda : gr.update(visible=False),
+                        lambda: gr.update(visible=False),
+                        inputs=None,
+                        outputs=thinking_message,
+                    )
+
+                    search_button.click(
+                        self.log_user_message,
+                        inputs=text_input,
+                        outputs=[stored_messages, text_input],
+                    ).then(
+                        lambda: gr.update(visible=True),
+                        inputs=None,
+                        outputs=thinking_message,
+                    ).then(
+                        self.interact_with_agent,
+                        inputs=[stored_messages, chatbot, current_product],
+                        outputs=[chatbot, product_reco],
+                    ).then(
+                        lambda: gr.update(visible=False),
                         inputs=None,
                         outputs=thinking_message,
                     )
 
                 clear.click(self.reset_agent, None, None
                             ).then(lambda: None, None, chatbot
-                            ).then(lambda: None, None, current_product
-                            ).then(lambda: None, None, product_reco)
+                                   ).then(lambda: None, None, current_product
+                                          ).then(lambda: None, None, product_reco)
 
-        demo.launch(debug=True, share=False, **kwargs)
+        demo.launch(debug=True, share=True, **kwargs)
 
 
 __all__ = ["stream_to_gradio", "GradioUI"]

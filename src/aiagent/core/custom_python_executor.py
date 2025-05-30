@@ -660,7 +660,7 @@ def evaluate_call(
             func = ERRORS[func_name]
         else:
             raise InterpreterError(
-                f"It is not permitted to evaluate other functions than the provided tools or functions defined/imported in previous code (tried to execute {call.func.id})."
+                f"It is not permitted to evaluate other functions than the provided utils or functions defined/imported in previous code (tried to execute {call.func.id})."
             )
     elif isinstance(call.func, ast.Subscript):
         func = evaluate_ast(call.func, state, static_tools, custom_tools, authorized_imports)
@@ -1169,8 +1169,8 @@ def evaluate_delete(
     Args:
         delete_node: The AST Delete node to evaluate
         state: The current state dictionary
-        static_tools: Dictionary of static tools
-        custom_tools: Dictionary of custom tools
+        static_tools: Dictionary of static utils
+        custom_tools: Dictionary of custom utils
         authorized_imports: List of authorized imports
     """
     for target in delete_node.targets:
@@ -1368,10 +1368,10 @@ def evaluate_python_code(
             The code to evaluate.
         static_tools (`Dict[str, Callable]`):
             The functions that may be called during the evaluation. These can also be agents in a multiagent setting.
-            These tools cannot be overwritten in the code: any assignment to their name will raise an error.
+            These utils cannot be overwritten in the code: any assignment to their name will raise an error.
         custom_tools (`Dict[str, Callable]`):
             The functions that may be called during the evaluation.
-            These tools can be overwritten in the code: any assignment to their name will overwrite them.
+            These utils can be overwritten in the code: any assignment to their name will overwrite them.
         state (`Dict[str, Any]`):
             A dictionary mapping variable names to values. The `state` should contain the initial inputs but will be
             updated by this function to contain all variables as they are evaluated.

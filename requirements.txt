@@ -7,3 +7,5 @@ bitsandbytes==0.45.3
 smolagents==1.12.0
 litellm==1.65.3
 beautifulsoup4
+pyyaml
+requests

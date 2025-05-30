@@ -7,6 +7,7 @@ from transformers import AutoModelForCausalLM, AutoModelForImageTextToText, Auto
 
 logger = logging.getLogger(__name__)
 
+
 def get_tool_json_schema(tool: Tool) -> Dict:
     properties = deepcopy(tool.inputs)
     required = []
@@ -28,9 +29,10 @@ def get_tool_json_schema(tool: Tool) -> Dict:
         },
     }
 
+
 def remove_stop_sequences(content: str, stop_sequences: List[str]) -> str:
     for stop_seq in stop_sequences:
-        if content[-len(stop_seq) :] == stop_seq:
+        if content[-len(stop_seq):] == stop_seq:
             content = content[: -len(stop_seq)]
     return content
 
@@ -76,13 +78,13 @@ class CustomTransformersModel(Model):
     """
 
     def __init__(
-        self,
-        model_id: Optional[str] = None,
-        device_map: Optional[str] = None,
-        torch_dtype: Optional[str] = None,
-        trust_remote_code: bool = False,
-        quantization_config = None,
-        **kwargs,
+            self,
+            model_id: Optional[str] = None,
+            device_map: Optional[str] = None,
+            torch_dtype: Optional[str] = None,
+            trust_remote_code: bool = False,
+            quantization_config=None,
+            **kwargs,
     ):
 
         self.model_id = model_id
@@ -146,12 +148,12 @@ class CustomTransformersModel(Model):
         return StoppingCriteriaList([StopOnStrings(stop_sequences, tokenizer)])
 
     def __call__(
-        self,
-        messages: List[Dict[str, str]],
-        stop_sequences: Optional[List[str]] = None,
-        grammar: Optional[str] = None,
-        tools_to_call_from: Optional[List[Tool]] = None,
-        **kwargs,
+            self,
+            messages: List[Dict[str, str]],
+            stop_sequences: Optional[List[str]] = None,
+            grammar: Optional[str] = None,
+            tools_to_call_from: Optional[List[Tool]] = None,
+            **kwargs,
     ) -> ChatMessage:
         completion_kwargs = self._prepare_completion_kwargs(
             messages=messages,
@@ -164,10 +166,10 @@ class CustomTransformersModel(Model):
         stop_sequences = completion_kwargs.pop("stop", None)
 
         max_new_tokens = (
-            kwargs.get("max_new_tokens")
-            or kwargs.get("max_tokens")
-            or self.kwargs.get("max_new_tokens")
-            or self.kwargs.get("max_tokens")
+                kwargs.get("max_new_tokens")
+                or kwargs.get("max_tokens")
+                or self.kwargs.get("max_new_tokens")
+                or self.kwargs.get("max_tokens")
         )
 
         if max_new_tokens:

@@ -4,7 +4,8 @@ from bs4 import BeautifulSoup
 import json
 import pandas as pd
 import re
-from typing import Any, Dict, Optional
+from typing import Any, Optional
+
 
 class ParserProductDescriptionWithGuideTool(Tool):
     name = "parse_product_description_with_guide"
@@ -25,15 +26,42 @@ class ParserProductDescriptionWithGuideTool(Tool):
     output_type = "string"
 
     def __init__(self, model,
-                 system_prompt,
                  **kwargs):
         super().__init__(**kwargs)
         self.model = model
-        self.system_prompt = system_prompt
+        self.system_prompt = ("""You are an expert assistant in product information extraction.
+
+Based on a *product description* provided by the user, your job is to identify and extract the *requested attributes*, 
+and organize them in a structured JSON format.
+
+Your response must **always include at minimum** the following keys, even if they are not explicitly requested:
+- "product_name"
+- "image_url"
+- "price"
+
+For each requested attribute:
+- If it is found in the description, provide its value.
+- If it is missing, return `"N/A"` as the value.
+
+Your final output must be a valid JSON object, using the exact attribute names as keys.
+
+Example:
+If the description is about a sofa and the requested attributes are ["dimension", "color", "material", "convertible"],
+your output should look like this:
+
+{
+ "product_name": "Oslo 3-seater Sofa",
+ "image_url": "https://...",
+ "price": "€499",
+ "dimension": "200x90x85 cm",
+ "color": "Light grey",
+ "material": "Fabric and wood",
+ "convertible": "Yes"
+}
+
+Be precise, structured, and always do your best to help the customer understand the product clearly.""")
 
     def _preprocessing_message(self, product_description, feature_list):
-
-
         messages = [{"role": "system",
                      "content": [{"type": "text", "text": self.system_prompt}]},
                     {"role": "user",
@@ -76,12 +104,11 @@ class GetProductDescriptionTool(Tool):
 
         return match.group(0)
 
-
     def forward(self, product_url: str) -> str:
 
         product_url = self._clean_product_url(product_url)
         try:
-            response = requests.get(product_url, headers=self.headers) # , proxies=self.proxies, verify=False)
+            response = requests.get(product_url, headers=self.headers)  # , proxies=self.proxies, verify=False)
             response.raise_for_status()
 
             soup = BeautifulSoup(response.text, 'html.parser')
@@ -157,7 +184,7 @@ def get_price_from_product_url(product_url: str) -> str:
         if price:
             return price.get_text()
 
-        else :
+        else:
             return 'price not found'
 
     except requests.exceptions.RequestException as e:
@@ -167,7 +194,8 @@ def get_price_from_product_url(product_url: str) -> str:
 @tool
 def search_on_amazon(keyword: str) -> list[dict]:
     """
-    function to retrieve a list of products resulting from a search on the amazon search engine. For all these products, we also retrieve the image url, the product price and the hypothetical delivery date.
+    function to retrieve a list of products resulting from a search on the amazon search engine. For all these products,
+    it also retrieve the image url, the product price and the hypothetical delivery date.
 
     Args:
         keyword: the keyword to search for in the search engine
@@ -189,26 +217,20 @@ def search_on_amazon(keyword: str) -> list[dict]:
         'Upgrade-Insecure-Requests': '1',
     }
 
-    proxies = {
-            "https": "scraperapi.country_code=us:5628df6812853d345249537321235862@proxy-server.scraperapi.com:8001"
-        }
+    url = f"https://www.amazon.fr/s?k={keyword.replace(' ', '+')}"  # Could be adapted for other countries
 
-    url = f"https://www.amazon.fr/s?k={keyword.replace(' ', '+')}"
-
-    # Envoi de la requête HTTP à Amazon
-    response = requests.get(url, headers=headers) #, proxies=proxies, verify=False)
+    response = requests.get(url, headers=headers)
 
     if response.status_code != 200:
-        print("Erreur lors de la récupération de la page")
+        print("Error during page loading")
 
-    # Utilisation de BeautifulSoup pour analyser le HTML de la page
+    # Parsing using beautifulSoup
     soup = BeautifulSoup(response.text, 'html.parser')
 
-    # Récupérer les 10 premiers produits
     products = []
-    product_elements = soup.find_all('div', role='listitem')
+    product_elements = soup.find_all('div', role='listitem')  # Getting only organic product
 
-    for product in product_elements[:10]:  # Limiter à 10 produits
+    for product in product_elements[:10]:  # limited to top 10 products
         product_json = dict()
 
         tag_sponsorised = product.find('span', class_='puis-label-popover-default')
@@ -220,12 +242,12 @@ def search_on_amazon(keyword: str) -> list[dict]:
         image_element = product.find('img', class_='s-image')
         link_element = product.find('a', class_='a-link-normal')
         price_element = product.find("span", class_='a-offscreen')
-        delivery_element = product.find('div', {"data-cy" : "delivery-recipe"})
+        delivery_element = product.find('div', {"data-cy": "delivery-recipe"})
 
-        if title_element :
+        if title_element:
             product_json['product_name'] = title_element.get_text()
 
-        if image_element :
+        if image_element:
             product_json['image_url'] = image_element.get('src')
 
         if link_element:
@@ -241,85 +263,6 @@ def search_on_amazon(keyword: str) -> list[dict]:
 
     return products
 
-# @tool
-# def compare_products(features: list[str], products: list[any]) -> pd.DataFrame:
-#     """
-#     Generate a comparison table (as a pandas DataFrame) from a list of structured product dictionaries.
-#
-#     This function is used when product data is already structured (e.g., extracted via another tool)
-#     and the goal is to present selected features in a clear tabular format for comparison.
-#
-#     Args:
-#         features: List of features to compare (e.g., ['price', 'Screen', 'Processor'])
-#         products: List of products as dictionaries, there must necessarily have the key product_name and price (e.g., [{'product_name': 'Product 1', 'price': 500, 'Screen': '15"', 'Processor': 'Intel i5'}, {'product_name': 'Product 2', 'price': 600, 'Screen': '17"', 'Processor': 'Intel i7'}])
-#
-#     Returns:
-#         A pandas DataFrame representing the comparison of the products
-#     """
-#
-#     # Créer une liste pour les lignes du tableau
-#     comparison_data = []
-#
-#     # Ajouter les produits dans les colonnes du tableau
-#     for product in products:
-#         # Extraire uniquement les caractéristiques pertinentes pour ce produit
-#         product_comparison = {feature: product.get(feature, 'N/A') for feature in features}
-#         comparison_data.append(product_comparison)
-#
-#     # Créer un DataFrame pandas à partir de la comparaison
-#     df_comparison = pd.DataFrame(comparison_data, columns=features)
-#
-#     return df_comparison
-
-# @tool
-# def compare_products_bis(products: list[any]) -> pd.DataFrame:
-#     """
-#     Compare products based on specified features and return a dataframe to easily read the comparisons
-#
-#     Args:
-#         products: List of products as dictionaries (e.g., [{'Name': 'Product 1', 'Price': 500, 'Screen': '15"', 'Processor': 'Intel i5'}, {'Name': 'Product 2', 'Price': 600, 'Screen': '17"', 'Processor': 'Intel i7'}])
-#
-#     Returns:
-#         A pandas DataFrame representing the comparison of the products
-#     """
-#
-#     df_comparison = pd.DataFrame(products)
-#
-#     return df_comparison
-
-# @tool
-# def display_product_image(product_url: str) -> Image:
-#     """
-#     Download the product image from product_url and return a PIL.Image object to display the product
-#
-#     Args:
-#         product_url: the url of the image to be downloaded
-#     Returns:
-#         A image in format PIL.Image downloaded from url
-#     """
-#     response = requests.get(product_url)
-#
-#     if response.status_code != 200:
-#         print("Error on downloading image process")
-#
-#     image = Image.open(BytesIO(response.content))
-#     return image
-#
-#
-#
-# class UserInputTool(Tool):
-#     name = "user_input"
-#     description = "Asks for user's input on a specific question"
-#     inputs = {"question": {"type": "string", "description": "The question to ask the user"}}
-#     output_type = "string"
-#
-#     def forward(self, question):
-#         gr.ChatMessage(role="user",
-#                              content='info de fou là incroyable')
-#         gr.ChatMessage(role="user",
-#                              content=question)
-#         # user_input = input(f"{question} => Type your answer here:")
-#         return 'pas de reponses utilisateur'
 
 class CompareProductTool(Tool):
     name = "compare_product"
@@ -330,7 +273,9 @@ class CompareProductTool(Tool):
     )
 
     inputs = {"list_product_element": {"type": "array",
-                                       "description": """List of products as dictionaries, there must necessarily have the key product_name and price (e.g., [{'product_name': 'Product 1', 'price': 500, 'Screen': '15"', 'Processor': 'Intel i5'}, {'product_name': 'Product 2', 'price': 600, 'Screen': '17"', 'Processor': 'Intel i7'}])"""}
+                                       "description": """List of products as dictionaries, 
+                                       there must necessarily have the key product_name and price 
+                                       (e.g., [{'product_name': 'Product 1', 'price': 500, 'Screen': '15"', 'Processor': 'Intel i5'}, {'product_name': 'Product 2', 'price': 600, 'Screen': '17"', 'Processor': 'Intel i7'}])"""}
               }
     output_type = "any"
 
@@ -349,7 +294,7 @@ class CompareProductTool(Tool):
                     {"role": "user", "content": f"met moi en forme ce json stp : {product_description}"}]
         model_output = self.model(messages, response_format={"type": "json"}).content
 
-        model_output = model_output.strip('```').replace('json', '', 1)
+        model_output = re.sub(r"^```(?:json)?\n|\n```$", "", model_output.strip())
         return json.loads(model_output)
 
     def forward(self, list_product_element: list[dict]):
@@ -417,7 +362,7 @@ class FinalAnswerTool(Tool):
     inputs = {"answer": {"type": "any", "description": "The final answer to the problem"},
               "structured_product": {"type": "object",
                                      "description": "optional products recommended in a structured format",
-                                     "nullable": True},}
+                                     "nullable": True}, }
     output_type = "any"
 
     def forward(self, answer: Any, structured_product: Optional[object] = None) -> (Any, Any):

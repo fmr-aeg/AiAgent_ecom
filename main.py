@@ -12,11 +12,12 @@ with open('config/secrets.yaml') as f:
 
 os.environ['GEMINI_API_KEY'] = SECRETS['gemini_token']
 
-model = LiteLLMModel(model_id='gemini/gemini-2.0-flash')
+tools_model = LiteLLMModel(model_id='gemini/gemini-2.0-flash')
+reasoning_model = LiteLLMModel(model_id='gemini/gemini-2.5-pro-preview-05-06')
 
-product_description_parser_with_guide = ParserProductDescriptionWithGuideTool(model)
-compare_products = CompareProductTool(model)
-filter_product = FilterProduct(model)
+product_description_parser_with_guide = ParserProductDescriptionWithGuideTool(tools_model)
+compare_products = CompareProductTool(tools_model)
+filter_product = FilterProduct(tools_model)
 get_product_description = GetProductDescriptionTool()
 final_answer = FinalAnswerTool()
 
@@ -31,7 +32,7 @@ agent = CodeAgent(
         filter_product,
         final_answer
     ],
-    model=model,
+    model=reasoning_model,
     prompt_templates=template,
     max_steps=8,
     verbosity_level=1,
@@ -46,4 +47,4 @@ agent.python_executor = LocalPythonExecutor(agent.additional_authorized_imports,
                                             max_print_outputs_length=agent.max_print_outputs_length)
 
 if __name__ == '__main__':
-    GradioUI(agent).launch()
+    GradioUI(agent).launch(allowed_paths=["assets"])

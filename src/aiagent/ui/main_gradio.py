@@ -99,7 +99,8 @@ def generate_product_cards(l_products):
             if feature not in ["product_name", "image_url", "product_link"]:
                 details += f"<li><b>{feature.capitalize()}:</b> {product[feature]}</li>"
 
-        image_link = product.get("image_url", 'assets/no_image.png')
+        image_link = product.get("image_url",
+                                 'https://raw.githubusercontent.com/fmr-aeg/AiAgent_ecom/refs/heads/main/assets/no_image.png')
         product_name = product.get("product_name", 'product name')
         product_link = product.get("product_link", 'www.amazon.fr')
 
@@ -182,6 +183,21 @@ class GradioUI:
         self.agent.memory.reset()
         self.agent.monitor.reset()
 
+    def pre_interaction_updates(self):
+        import gradio as gr
+        return (
+            gr.update(visible=False),  # info row
+            gr.update(visible=False),  # example row
+            gr.update(visible=True),  # chatbot
+            gr.update(visible=True),  # product_reco
+            gr.update(visible=True),  # thinking_message
+            gr.update(visible=True),  # column_reset
+        )
+
+    def post_interaction_updates(self):
+        import gradio as gr
+        return gr.update(visible=False)  # hide thinking
+
     def launch(self, **kwargs):
         import gradio as gr
 
@@ -192,10 +208,10 @@ class GradioUI:
             with gr.Row(scale=1):
                 gr.Markdown('')
 
-                with gr.Column(scale=1):
+                with gr.Column(scale=1, visible=False) as column_reset:
                     clear = gr.Button("Reset conversation", variant="primary")
 
-                with gr.Column(scale=10):
+                with gr.Column(scale=30):
                     chatbot = gr.Chatbot(
                         label="🤖 AmazAgent",
                         show_label=False,
@@ -206,61 +222,259 @@ class GradioUI:
                         ),
                         resizeable=True,
                         scale=1,
+                        visible=False
                     )
 
                     thinking_message = gr.Markdown("🤖 Let me think...", visible=False)
-                    product_reco = gr.HTML()
+                    product_reco = gr.HTML(visible=False)
                     with gr.Row():
                         text_input = gr.Textbox(lines=1,
                                                 label="Chat Message",
                                                 show_label=False,
-                                                placeholder="I'm looking for a black dress for a wedding that will take place Saturday next week. Can you help me?",
+                                                placeholder="How can I help you ?",
                                                 container=False,
                                                 scale=15)
                         search_button = gr.Button("🔍︎", scale=1, variant="secondary")
 
+                    gr.HTML("""
+                        <style>
+                            .grid-container {
+                                display: grid;
+                                grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+                                gap: 20px;
+                                padding: 20px;
+                            }
+
+                            .gr-row {
+                                align-items: stretch; /* étire les colonnes pour hauteur égale */
+                            }
+
+                            .card {
+                                background-color: white;
+                                border-radius: 10px;
+                                box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+                                text-align: center;
+                                padding: 16px;
+                                display: flex;
+                                flex-direction: column;
+                                justify-content: space-between;
+                            }
+
+                            .card h3 {
+                                font-size: 16px;
+                                margin-bottom: 10px;
+                                color: #fc0000;
+                            }
+
+                            .card h4 {
+                                font-size: 12px;
+                                margin-bottom: 10px;
+                                color: #fc0000;
+                            }
+
+                            .card img {
+                                max-width: 100%;
+                                height: auto;
+                                flex: auto;
+                                object-fit: scale-down;
+                                border-radius: 6px;
+                                margin-bottom: 10px;
+                                margin: auto;
+                            }
+
+                            .card .gr-button {
+                                margin-top: auto;
+                                width: 100%;
+                            }
+
+                            .info-box {
+                                display: flex;
+                                align-items: flex-start;
+                                max-width: 100%;
+                                background-color: #fff;
+                                border-radius: 8px;
+                                padding: 20px 24px;
+                                box-shadow: 0 4px 10px rgba(0, 0, 0, 0.08);
+                                border-left: 6px solid #ffa41c;
+                                margin: 20px auto;
+                            }
+
+                            .info-content {
+                                flex: 1;
+                                color: #000000;
+                            }
+
+                            .info-title {
+                                font-size: 18px;
+                                font-weight: 600;
+                                margin-bottom: 10px;
+                                color: #000000;
+                            }
+
+                            .info-text {
+                                font-size: 15px;
+                                line-height: 1.6;
+                                margin-bottom: 12px;
+                            }
+
+                            .disclaimer {
+                                font-size: 13px;
+                                color: #fc0000;
+                            }
+
+                            .disclaimer b {
+                                color: #fc0000;
+                            }
+                        </style>
+                    """)
+
+                    with gr.Row(elem_classes="info-box") as info_row:
+                        gr.HTML(
+                            """<div class="info-content">
+                                    <div class="info-title">About this assistant</div>
+                                    <div class="info-text">
+                                      Meet your smart shopping assistant — an AI agent that interacts directly with Amazon to guide you through your online shopping journey. It can reason, adapt to your feedback in real time, and curate the most relevant product selections for your needs. Think of it as your personal shopper, helping you find the best items effortlessly and efficiently.
+                                    </div>
+                                    <div class="disclaimer">
+                                      <b>Disclaimer:</b> This tool is not affiliated with Amazon or any of its subsidiaries. It simply uses publicly available data to assist you in your product search.
+                                    </div>
+                                </div>"""
+                        )
+
+                    with gr.Row() as example_row:
+                        with gr.Column(elem_classes="card"):
+                            gr.HTML(
+                                "<h3>Can you find similar products to this one and compare them for me, please?</h3>"
+                                "<img src='gradio_api/file=assets/result_siege_auto.png' "
+                                "alt='Image 2'>")
+                            button_example2 = gr.Button("Explore this suggestion")
+                            text_example2 = gr.Markdown(
+                                "Can you find similar products to this one : https://www.amazon.fr/CYBEX-Solution-i-Fix-Pure-Black/dp/B0C58QGJNG/?th=1 and compare them for me, please?",
+                                visible=False)
+                        with gr.Column(elem_classes="card"):
+                            gr.HTML(
+                                "<h3>I'm hesitating between the S24 Ultra, the iPhone 16, and the Xiaomi 14 Ultra.</h3>"
+                                "<img src='gradio_api/file=assets/phone_result_example.png' "
+                                "alt='Image 3'>")
+                            button_example3 = gr.Button("Run this prompt")
+                            text_example3 = gr.Markdown(
+                                "I'm hesitating between the S24 Ultra, the iPhone 16, and the Xiaomi 14 Ultra.",
+                                visible=False)
+                        with gr.Column(elem_classes="card"):
+                            gr.HTML(
+                                "<h3>Je cherche une robe noir pour un mariage qui a lieu le week-end de la semaine prochaine.</h3>"
+                                "<img src='gradio_api/file=assets/black_dress_example.png' "
+                                "alt='Image 1'>")
+                            button_example1 = gr.Button("Start with this")
+                            text_example1 = gr.Markdown(
+                                "Je cherche une robe noir pour un mariage qui a lieu le week-end de la semaine prochaine",
+                                visible=False)
+
+                    # Enter case
                     text_input.submit(
                         self.log_user_message,
                         inputs=text_input,
                         outputs=[stored_messages, text_input],
                     ).then(
-                        lambda: gr.update(visible=True),
+                        self.pre_interaction_updates,
                         inputs=None,
-                        outputs=thinking_message,
+                        outputs=[info_row, example_row, chatbot, product_reco, thinking_message, column_reset]
                     ).then(
                         self.interact_with_agent,
                         inputs=[stored_messages, chatbot, current_product],
                         outputs=[chatbot, product_reco],
                     ).then(
-                        lambda: gr.update(visible=False),
+                        self.post_interaction_updates,
                         inputs=None,
                         outputs=thinking_message,
                     )
 
+                    # button search case
                     search_button.click(
                         self.log_user_message,
                         inputs=text_input,
                         outputs=[stored_messages, text_input],
                     ).then(
-                        lambda: gr.update(visible=True),
+                        self.pre_interaction_updates,
                         inputs=None,
-                        outputs=thinking_message,
+                        outputs=[info_row, example_row, chatbot, product_reco, thinking_message, column_reset]
                     ).then(
                         self.interact_with_agent,
                         inputs=[stored_messages, chatbot, current_product],
                         outputs=[chatbot, product_reco],
                     ).then(
-                        lambda: gr.update(visible=False),
+                        self.post_interaction_updates,
                         inputs=None,
                         outputs=thinking_message,
                     )
 
-                clear.click(self.reset_agent, None, None
-                            ).then(lambda: None, None, chatbot
-                                   ).then(lambda: None, None, current_product
-                                          ).then(lambda: None, None, product_reco)
+                    # button example 1
+                    button_example1.click(
+                        self.log_user_message,
+                        inputs=text_example1,
+                        outputs=[stored_messages, text_example1],
+                    ).then(
+                        self.pre_interaction_updates,
+                        inputs=None,
+                        outputs=[info_row, example_row, chatbot, product_reco, thinking_message, column_reset]
+                    ).then(
+                        self.interact_with_agent,
+                        inputs=[stored_messages, chatbot, current_product],
+                        outputs=[chatbot, product_reco],
+                    ).then(
+                        self.post_interaction_updates,
+                        inputs=None,
+                        outputs=thinking_message,
+                    )
 
-        demo.launch(debug=True, share=True, **kwargs)
+                    # button example 2
+                    button_example2.click(
+                        self.log_user_message,
+                        inputs=text_example2,
+                        outputs=[stored_messages, text_example2],
+                    ).then(
+                        self.pre_interaction_updates,
+                        inputs=None,
+                        outputs=[info_row, example_row, chatbot, product_reco, thinking_message, column_reset]
+                    ).then(
+                        self.interact_with_agent,
+                        inputs=[stored_messages, chatbot, current_product],
+                        outputs=[chatbot, product_reco],
+                    ).then(
+                        self.post_interaction_updates,
+                        inputs=None,
+                        outputs=thinking_message,
+                    )
+
+                    # button example 3
+                    button_example3.click(
+                        self.log_user_message,
+                        inputs=text_example3,
+                        outputs=[stored_messages, text_example3],
+                    ).then(
+                        self.pre_interaction_updates,
+                        inputs=None,
+                        outputs=[info_row, example_row, chatbot, product_reco, thinking_message, column_reset]
+                    ).then(
+                        self.interact_with_agent,
+                        inputs=[stored_messages, chatbot, current_product],
+                        outputs=[chatbot, product_reco],
+                    ).then(
+                        self.post_interaction_updates,
+                        inputs=None,
+                        outputs=thinking_message,
+                    )
+
+                clear.click(
+                    self.reset_agent,
+                    None,
+                    None
+                ).then(
+                    lambda: [None, None, None],
+                    None,
+                    [chatbot, current_product, product_reco])
+
+        demo.launch(debug=True, share=False, **kwargs)
 
 
 __all__ = ["stream_to_gradio", "GradioUI"]

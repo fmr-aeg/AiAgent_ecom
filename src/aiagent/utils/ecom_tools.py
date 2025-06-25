@@ -93,9 +93,6 @@ class GetProductDescriptionTool(Tool):
             "Accept-Language": "en-US,en;q=0.9"
         }
 
-        self.proxies = {
-            "https": "scraperapi.country_code=us:5628df6812853d345249537321235862@proxy-server.scraperapi.com:8001"
-        }
 
     @staticmethod
     def _clean_product_url(product_url: str) -> str:
@@ -108,7 +105,7 @@ class GetProductDescriptionTool(Tool):
 
         product_url = self._clean_product_url(product_url)
         try:
-            response = requests.get(product_url, headers=self.headers)  # , proxies=self.proxies, verify=False)
+            response = requests.get(product_url, headers=self.headers)
             response.raise_for_status()
 
             soup = BeautifulSoup(response.text, 'html.parser')
@@ -154,44 +151,6 @@ class GetProductDescriptionTool(Tool):
 
 
 @tool
-def get_price_from_product_url(product_url: str) -> str:
-    """
-    Function that return the price of the product on Amazon
-
-    Args:
-        product_url: The url of the product sold on Amazon.com
-
-    Returns:
-        A string containing the price and the currency of the product (e.g. : '134,45$')
-    """
-
-    headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36",
-        "Accept-Language": "en-US,en;q=0.9"
-    }
-
-    proxies = {
-        "https": "scraperapi.country_code=us:5628df6812853d345249537321235862@proxy-server.scraperapi.com:8001"
-    }
-
-    try:
-        response = requests.get(product_url, headers=headers, proxies=proxies, verify=False)
-        response.raise_for_status()
-
-        soup = BeautifulSoup(response.text, 'html.parser')
-        price = soup.find('span', class_='a-offscreen')
-
-        if price:
-            return price.get_text()
-
-        else:
-            return 'price not found'
-
-    except requests.exceptions.RequestException as e:
-        return f"Error : {str(e)}"
-
-
-@tool
 def search_on_amazon(keyword: str) -> list[dict]:
     """
     function to retrieve a list of products resulting from a search on the amazon search engine. For all these products,
@@ -222,7 +181,7 @@ def search_on_amazon(keyword: str) -> list[dict]:
     response = requests.get(url, headers=headers)
 
     if response.status_code != 200:
-        print("Error during page loading")
+        print("Error during page loading", response.status_code)
 
     # Parsing using beautifulSoup
     soup = BeautifulSoup(response.text, 'html.parser')
@@ -307,18 +266,18 @@ class CompareProductTool(Tool):
 class FilterProduct(Tool):
     name = "filter_product"
     description = (
-        "Filtre une liste de produits selon une condition exprimée par l'utilisateur."
-        "La condition est une phrase en langage naturel (ex: 'doit être livré avant le 10 mai', 'prix inférieur à 300€', etc.)."
+        "Filter a list of products based on a user-defined condition."
+        """The condition is expressed in natural language (e.g., "must be delivered before May 10", "price under €300", etc.)."""
     )
 
     inputs = {
         "list_product_element": {
             "type": "array",
-            "description": "Liste de produits sous forme de dictionnaires. Ex: [{'product_name': 'A', 'price': 100, 'delivery_date': '5 mai'}]"
+            "description": "List of products in the form of dictionaries. Example: [{'product_name': 'A', 'price': 100, 'delivery_date': '5 May'}]"
         },
         "condition": {
             "type": "string",
-            "description": "Condition en langage naturel à respecter (ex: 'doit être livré avant le 10 mai')."
+            "description": "Natural language condition to be met (e.g., 'must be delivered before May 10')."
         }
     }
 

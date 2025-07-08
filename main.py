@@ -13,7 +13,7 @@ with open('config/secrets.yaml') as f:
 os.environ['GEMINI_API_KEY'] = SECRETS['gemini_token']
 
 tools_model = LiteLLMModel(model_id='gemini/gemini-2.0-flash')
-reasoning_model = LiteLLMModel(model_id='gemini/gemini-2.5-pro-preview-05-06')
+reasoning_model = LiteLLMModel(model_id='gemini/gemini-2.0-flash')
 
 product_description_parser_with_guide = ParserProductDescriptionWithGuideTool(tools_model)
 compare_products = CompareProductTool(tools_model)

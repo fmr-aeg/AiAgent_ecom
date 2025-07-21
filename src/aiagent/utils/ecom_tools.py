@@ -170,12 +170,8 @@ def get_price_from_product_url(product_url: str) -> str:
         "Accept-Language": "en-US,en;q=0.9"
     }
 
-    proxies = {
-        "https": "scraperapi.country_code=us:5628df6812853d345249537321235862@proxy-server.scraperapi.com:8001"
-    }
-
     try:
-        response = requests.get(product_url, headers=headers, proxies=proxies, verify=False)
+        response = requests.get(product_url, headers=headers)
         response.raise_for_status()
 
         soup = BeautifulSoup(response.text, 'html.parser')
@@ -233,9 +229,9 @@ def search_on_amazon(keyword: str) -> list[dict]:
     for product in product_elements[:10]:  # limited to top 10 products
         product_json = dict()
 
-        tag_sponsorised = product.find('span', class_='puis-label-popover-default')
+        tag_sponsored = product.find('span', class_='puis-label-popover-default')
 
-        if tag_sponsorised:
+        if tag_sponsored: # Skip sponsored products
             continue
 
         title_element = product.find('h2')

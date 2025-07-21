@@ -12,17 +12,20 @@ with open('config/secrets.yaml') as f:
 
 os.environ['GEMINI_API_KEY'] = SECRETS['gemini_token']
 
-tools_model = LiteLLMModel(model_id='gemini/gemini-2.0-flash')
-reasoning_model = LiteLLMModel(model_id='gemini/gemini-2.0-flash')
+tools_model = LiteLLMModel(model_id='gemini/gemini-2.0-flash') # Model used for tools using llm
+reasoning_model = LiteLLMModel(model_id='gemini/gemini-2.0-flash') # Model used for reasoning
 
+# Tools initialization
 product_description_parser_with_guide = ParserProductDescriptionWithGuideTool(tools_model)
 compare_products = CompareProductTool(tools_model)
 filter_product = FilterProduct(tools_model)
 get_product_description = GetProductDescriptionTool()
 final_answer = FinalAnswerTool()
 
+# Loading system prompt
 template = yaml.safe_load(open("config/prompt.yaml"))
 
+# agent initialization
 agent = CodeAgent(
     tools=[
         get_product_description,
@@ -43,6 +46,7 @@ agent = CodeAgent(
     additional_authorized_imports=['pandas', 'json']
 )
 
+# Using customized python executor for accepting double parameters in the final answer
 agent.python_executor = LocalPythonExecutor(agent.additional_authorized_imports,
                                             max_print_outputs_length=agent.max_print_outputs_length)
 

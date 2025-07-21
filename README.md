@@ -17,6 +17,8 @@ It simulates an interactive personal shopper, capable of:
 
 ## 🎥 Demo
 
+![gif presentation](https://github.com/user-attachments/assets/70152f7e-c7dd-47b8-9501-42d4458b5b9b)
+
 ---
 
 ## Install dependencies
